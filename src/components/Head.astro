@@ -1,0 +1,52 @@
+---
+import DefaultHead from '@astrojs/starlight/components/Head.astro';
+---
+
+<DefaultHead />
+
+<script>
+  import mermaid from 'mermaid';
+
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: 'strict',
+    theme: 'base',
+    fontFamily: 'var(--sl-font-system)',
+    themeVariables: {
+      background: '#ffffff',
+      primaryColor: '#d9f2ec',
+      primaryTextColor: '#123b35',
+      primaryBorderColor: '#2c756b',
+      secondaryColor: '#fff1cc',
+      secondaryTextColor: '#4b3912',
+      secondaryBorderColor: '#a97817',
+      tertiaryColor: '#f1f4f3',
+      tertiaryTextColor: '#25312f',
+      tertiaryBorderColor: '#77827f',
+      lineColor: '#596864',
+      textColor: '#25312f',
+      clusterBkg: '#f7faf9',
+      clusterBorder: '#a8b5b1',
+      edgeLabelBackground: '#ffffff',
+      fontSize: '15px',
+    },
+    flowchart: {
+      htmlLabels: true,
+      curve: 'basis',
+      padding: 14,
+    },
+  });
+
+  async function renderMermaid() {
+    const nodes = document.querySelectorAll<HTMLElement>('.mermaid:not([data-processed])');
+    if (nodes.length === 0) return;
+    await mermaid.run({ nodes });
+  }
+
+  document.addEventListener('astro:page-load', () => void renderMermaid());
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => void renderMermaid(), { once: true });
+  } else {
+    void renderMermaid();
+  }
+</script>

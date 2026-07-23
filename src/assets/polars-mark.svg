@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" role="img" aria-label="Polars column mark">
+  <rect width="40" height="40" rx="8" fill="#123b35"/>
+  <rect x="8" y="21" width="6" height="11" rx="1" fill="#72d8c6"/>
+  <rect x="17" y="14" width="6" height="18" rx="1" fill="#ffffff"/>
+  <rect x="26" y="8" width="6" height="24" rx="1" fill="#f3c75f"/>
+</svg>

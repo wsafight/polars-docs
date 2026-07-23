@@ -1,0 +1,18 @@
+[project]
+name = "polars-tutorial"
+version = "0.1.0"
+description = "Polars 深度教程：从零到地道，pandas + DuckDB 双对照"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "duckdb>=1.5.5",
+    "numpy>=2.5.1",
+    "pandas>=3.0.5",
+    "polars>=1.43.0",
+    "pyarrow>=25.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+]
