@@ -6,7 +6,7 @@ sidebar:
   order: 8
 ---
 
-> 到目前为止我们处理的都是"标量列"（一格一个数/字符串）。真实数据里还有大量**复杂类型**：需要清洗的脏字符串、一格装多个值的 List、一格装一个"对象"的 Struct。Polars 用**命名空间（namespace）**优雅地组织这些类型的专属操作——这是它相对 pandas `object` 列一团乱麻的巨大改进。
+> 到目前为止我们处理的都是"标量列"（一格一个数/字符串）。真实数据里还有大量**复杂类型**：需要清洗的脏字符串、一格装多个值的 List、一格装一个"对象"的 Struct。Polars 用**命名空间（namespace）**组织这些类型的专属操作；相较于用传统 pandas `object` 列承载任意 Python 对象，它能把嵌套结构直接写进 schema。
 
 ---
 
@@ -22,13 +22,13 @@ graph TD
     Expr --> DT[".dt.*<br/>时间工具箱（第 09 节）<br/>year/month/weekday"]
 ```
 
-好处：**发现性强**（IDE 里敲 `.str.` 就列出所有字符串操作）、**类型安全**（对字符串列用 `.list` 会报错）、**全部向量化**（走 Rust 路径，不像 pandas `.str` 那样慢）。
+好处：**发现性强**（IDE 里敲 `.str.` 就列出所有字符串操作）、**类型安全**（对字符串列用 `.list` 会报错）、**原生执行**（这些表达式走 Rust 路径，并保留明确的输入输出类型）。
 
 ---
 
 ## String 命名空间：`.str`
 
-pandas 的字符串列常是 `object` 类型，操作慢且行为不一致。Polars 的 `String` 是原生类型，`.str` 下的操作全部向量化：
+传统 pandas 数据或混合对象列常使用 `object` 承载字符串；pandas 3 默认已能推断专用 `str` dtype。Polars 的 `String` 同样是原生类型，`.str` 下的操作由表达式引擎批量执行：
 
 | 常用操作 | 作用 |
 | --- | --- |
@@ -108,9 +108,9 @@ flowchart LR
 
 ---
 
-## 为什么这套设计优于 pandas
+## 为什么明确的复杂 dtype 更可靠
 
-- pandas 的 `object` 列是"什么都能装"的黑洞，操作走 Python 循环、慢且易错。
+- 传统 pandas `object` 列可以混装任意 Python 对象，schema 无法说明每个元素的嵌套结构；现代 pandas 的专用字符串/Arrow dtype 已改善了部分场景。
 - Polars 的复杂类型是**一等公民**，有明确 dtype、有专属命名空间、全部向量化。
 - 命名空间让 API **可发现、可组合**：`pl.col("note").str.strip_chars().str.split(" ").list.first()` 这条链，跨了 str→list 两个命名空间，一气呵成。
 
@@ -139,6 +139,6 @@ uv run code/08_complex_types.py
 2. `.str` 让脏字符串清洗向量化（`strip_chars` + `to_lowercase` 是清洗标配）。
 3. `.list` 能**就地对每个 list 计算**，`.list.eval(pl.element()...)` 是嵌套向量化 map，常比 explode 更省。
 4. `.struct` 用于**多列打包/解包**和**承载"一次返回多值"的表达式结果**（配 `unnest`）。
-5. 这套设计让 Polars 处理嵌套/脏数据远优于 pandas 的 `object` 列。
+5. 相比把嵌套值放进传统 `object` 列，明确的 `List` / `Struct` dtype 更容易校验、组合和优化。
 
 下一节讲复杂类型里最特殊的一类——时间序列。

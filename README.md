@@ -88,7 +88,7 @@ bun run check
 bun run build
 ```
 
-`main` 分支的 GitHub Actions 会同时运行 Python 回归测试与 Astro 构建，并把产物部署到 GitHub Pages。仓库名不是 `<用户名>.github.io` 时，构建会自动设置对应的 Pages 子路径。
+`main` 分支的 GitHub Actions 会同时运行 Python 回归测试与 Astro 构建，并把产物部署到 GitHub Pages。构建会根据 `GITHUB_REPOSITORY` 自动推导站点 owner 与 Pages 子路径：普通项目仓库使用 `/<仓库名>`，`<用户名>.github.io` 仓库使用根路径。自定义域名或特殊部署目录可通过 `SITE`、`BASE_PATH` 覆盖。
 
 ---
 

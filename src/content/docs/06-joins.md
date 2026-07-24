@@ -50,7 +50,7 @@ graph TD
 | `left` | 左表全留，右表补 null | 订单为主，补充客户信息（哪怕客户缺失） | `LEFT JOIN` |
 | `full` | 两边全留 | 对账：找出两边各自独有的键 | `FULL OUTER JOIN` |
 | `semi` | 左表中能匹配的行（**不加右表列**） | "有过下单的客户"——筛选而非扩展 | `WHERE k IN (SELECT ...)` |
-| `anti` | 左表中匹配不上的行（**不加右表列**） | "从未下单的客户"——找缺口 | `WHERE k NOT IN (...)` |
+| `anti` | 左表中匹配不上的行（**不加右表列**） | "从未下单的客户"——找缺口 | `WHERE NOT EXISTS (...)` |
 
 > **semi/anti 是 Polars 相对 pandas 的一大便利**。pandas 里要实现"从未下单的客户"得用 `isin` + 取反的迂回写法；Polars 一个 `how="anti"` 直达。它们本质是"用右表当过滤器"，结果只含左表的列。
 
@@ -62,13 +62,18 @@ graph TD
 
 这是第 05 节我们撞到的真实坑。`join` 默认 `nulls_equal=False`——**两边的 null 键不会互相匹配**（符合 SQL 里 `NULL != NULL` 的语义）。
 
-后果：如果你的键列含 null，`inner`/`left` join 会悄悄丢掉这些行。要让 null 参与匹配，显式传 `nulls_equal=True`。
+后果取决于 join 类型：`inner` 会丢掉没有匹配项的 null 键行；`left` 仍保留左表的 null 键行，只是右表列填 null；`full` 会把两侧未匹配的 null 各自保留下来。要让两侧 null **互相匹配**，显式传 `nulls_equal=True`。
 
 ```python
-# 键列含 null 时，两种行为差异巨大
-df.join(other, on="city")                    # null 城市的行被丢弃
-df.join(other, on="city", nulls_equal=True)  # null 也作为一个键参与匹配
+# 默认 inner：左侧 null 没有匹配项，因此对应行被丢弃
+df.join(other, on="city", how="inner")
+
+# left 始终保留左表行；nulls_equal 只决定右表 null 是否与它匹配
+df.join(other, on="city", how="left")
+df.join(other, on="city", how="left", nulls_equal=True)
 ```
+
+这也是为什么 anti join 更接近 SQL 的 `NOT EXISTS`，而不是 `NOT IN`：后者只要右侧结果里出现 null，就会受到 SQL 三值逻辑影响，可能得不到直觉中的"未匹配行"。
 
 ### 坑二：join 会放大行数（多对多）
 

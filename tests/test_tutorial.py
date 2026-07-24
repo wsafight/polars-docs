@@ -1,16 +1,24 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
 import numpy as np
 import polars as pl
+import pytest
 from polars.testing import assert_frame_equal
 
 ROOT = Path(__file__).resolve().parent.parent
 CODE_DIR = ROOT / "code"
 sys.path.insert(0, str(CODE_DIR))
+
+TUTORIAL_SCRIPTS = tuple(
+    path
+    for path in sorted(CODE_DIR.glob("[0-9][0-9]_*.py"))
+    if path.name != "00_generate_data.py"
+)
 
 
 def load_chapter(filename: str):
@@ -37,6 +45,25 @@ def test_generated_dataset_invariants() -> None:
     assert orders.shape == (5020, 8)
     assert orders.height - orders.unique().height == 20
     assert orders["discount"].null_count() > 0
+
+
+@pytest.mark.parametrize("script", TUTORIAL_SCRIPTS, ids=lambda path: path.stem)
+def test_tutorial_script_runs_from_the_command_line(script: Path) -> None:
+    """Exercise every chapter through the same entry point readers use."""
+    result = subprocess.run(
+        [sys.executable, str(script)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+
+    assert result.returncode == 0, (
+        f"{script.name} failed with exit code {result.returncode}\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
 
 
 def test_intro_engines_produce_the_same_result() -> None:

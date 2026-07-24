@@ -3,13 +3,23 @@ import { unified } from '@astrojs/markdown-remark';
 import starlight from '@astrojs/starlight';
 import remarkMermaid from './src/plugins/remark-mermaid.mjs';
 
-const repository = process.env.GITHUB_REPOSITORY ?? '';
+const repository = process.env.GITHUB_REPOSITORY || 'wsafight/polars-docs';
+const [repositoryOwner, repositoryName] = repository.split('/');
+const isUserSite = repositoryName === `${repositoryOwner}.github.io`;
+const site = process.env.SITE || `https://${repositoryOwner}.github.io`;
+const base = process.env.BASE_PATH || (isUserSite ? '/' : `/${repositoryName}`);
 
 export default defineConfig({
-  site: 'https://wsafight.github.io',
-  base: '/polars-docs',
+  site,
+  base,
   markdown: {
     processor: unified({ remarkPlugins: [remarkMermaid] }),
+  },
+  vite: {
+    build: {
+      // Mermaid exposes optional lazy diagram parsers; the site loads only flowcharts.
+      chunkSizeWarningLimit: 700,
+    },
   },
   integrations: [
     starlight({
@@ -36,13 +46,9 @@ export default defineConfig({
         minHeadingLevel: 2,
         maxHeadingLevel: 3,
       },
-      ...(repository
-        ? {
-            editLink: {
-              baseUrl: `https://github.com/${repository}/edit/main/`,
-            },
-          }
-        : {}),
+      editLink: {
+        baseUrl: `https://github.com/${repository}/edit/main/`,
+      },
       sidebar: [
         {
           label: '开始',

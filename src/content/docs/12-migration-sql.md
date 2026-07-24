@@ -33,9 +33,9 @@ flowchart LR
 
 | 主题 | pandas | Polars | 迁移要点 |
 | --- | --- | --- | --- |
-| **索引 index** | 有 index，自动对齐 | **无 index**，位置即身份 | 忘掉 `set_index`/`reset_index`/`loc`，用 `filter`/列选择 |
+| **索引 index** | 有 index，自动对齐 | **无隐式 index**，键是普通列 | 丢弃无意义的 RangeIndex；业务键/时间索引先保留为普通列，再显式 `filter`/`join`/`sort` |
 | **就地修改** | `inplace=True` | **一切返回新对象** | 没有 inplace，用赋值 `df = df.with_columns(...)` |
-| **缺失值** | `NaN` 混用表示缺失 | **null 与 NaN 分离** | 用 `fill_null`/`is_null`，别再用 NaN 表缺失（第 01 节） |
+| **缺失值** | 传统 dtype 常用 `NaN`，nullable dtype 也有 `pd.NA` | **null 与 NaN 分离** | 明确使用 `fill_null`/`fill_nan`，不要假定一种 API 同时处理两者（第 01 节） |
 | **新增列** | `df['c'] = ...` | `df.with_columns(...)` | 表达式而非赋值 |
 | **条件列** | `np.where` / `apply` | `when/then/otherwise` | 向量化条件（第 02 节） |
 | **自定义函数** | `.apply(lambda)` | 优先内置表达式，避免 `map_elements` | 头号性能坑（第 11 节） |
@@ -43,7 +43,7 @@ flowchart LR
 | **重命名** | `df.rename(columns=...)` | `df.rename({...})` | 类似 |
 | **行过滤** | `df[df.a>1]`（布尔索引） | `df.filter(pl.col('a')>1)` | 无 `SettingWithCopyWarning` |
 | **链式** | 需 `.pipe()` 或中间变量 | 天然方法链 | Polars 为链式而生 |
-| **类型** | 常隐式转换（int→float） | 显式、稳定 | int 带 null 不退化（第 01 节） |
+| **类型** | NumPy-backed 普通 int 遇缺失会转 float；nullable dtype 可保留整数 | 显式、稳定 | 迁移时同时核对值、dtype 与缺失语义（第 01 节） |
 
 ---
 
@@ -53,7 +53,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    S1["1 读取<br/>read_csv → scan/read_parquet"] --> S2["2 去掉所有 index 操作<br/>set_index/reset_index/loc 删掉"]
+    S1["1 读取<br/>read_csv → scan/read_parquet"] --> S2["2 识别 index 语义<br/>无意义的丢弃<br/>业务键/时间轴保留为列"]
     S2 --> S3["3 赋值列 → with_columns<br/>df['c']=... 改成表达式"]
     S3 --> S4["4 apply/np.where → 表达式<br/>when/then、内置函数"]
     S4 --> S5["5 groupby.transform → over<br/>agg 用表达式"]
@@ -62,7 +62,7 @@ flowchart TD
 ```
 
 1. **入口**：`pd.read_csv` → `pl.scan_parquet`（顺便把数据转成 Parquet）。
-2. **删 index**：所有 `set_index`/`reset_index`/`loc[label]` 都不需要。
+2. **显式化 index 语义**：默认 `RangeIndex` 通常可以丢弃；若 index 承载业务键、时间轴或对齐关系，先 `reset_index()` 或在转换时保留为普通列，再用 `filter`、`join`、`sort` 等显式表达原来的操作。不要直接删除这些语义。
 3. **列赋值 → `with_columns`**：`df['c'] = df['a']+1` → `df.with_columns((pl.col('a')+1).alias('c'))`。
 4. **`apply`/`np.where` → 表达式**：能用内置表达式就别回调 Python。
 5. **`transform` → `over`**：分组广播用窗口函数。
@@ -114,7 +114,7 @@ flowchart LR
     end
 ```
 
-> 何时用哪个？**表达式能写清楚的，就用表达式**（可断点、可组合、类型安全）。SQL 接口适合：从 SQL 背景过渡、粘贴现成 SQL、或某些 SQL 表达更自然的复杂查询。Polars 原生 SQL 和表达式 API 底层是同一个优化器，性能一致。
+> 何时用哪个？**表达式能写清楚的，就用表达式**（可断点、可组合、类型安全）。SQL 接口适合：从 SQL 背景过渡、粘贴现成 SQL、或某些 SQL 表达更自然的复杂查询。Polars 原生 SQL 最终也会生成 Lazy 计划并交给同一执行引擎，但两种写法是否产生完全相同的计划仍应以 `explain()` 和实际测量为准。
 
 ---
 

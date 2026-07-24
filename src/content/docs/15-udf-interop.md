@@ -89,8 +89,8 @@ graph TD
     PL["Polars DataFrame/Series"]
     PL <-->|"to_numpy / from_numpy<br/>数值列常零拷贝"| NP["numpy<br/>科学计算/ML 输入"]
     PL <-->|"to_pandas / from_pandas<br/>Arrow 支撑"| PD["pandas<br/>衔接旧代码/特定库"]
-    PL <-->|"to_arrow / from_arrow<br/>零拷贝"| AR["Arrow<br/>跨语言/DuckDB"]
-    PL <-->|"read_database / write_database"| DB["SQL 数据库<br/>via connectorx/ADBC"]
+    PL <-->|"to_arrow / from_arrow<br/>多数兼容类型低/零拷贝"| AR["Arrow<br/>跨语言/DuckDB"]
+    PL <-->|"read_database / write_database<br/>read_database_uri"| DB["SQL 数据库<br/>DBAPI/SQLAlchemy/ADBC/ConnectorX"]
 ```
 
 | 方向 | 方法 | 说明 |
@@ -99,7 +99,9 @@ graph TD
 | ← numpy | `pl.Series(np_array)` | numpy 结果转回 Polars |
 | → pandas | `df.to_pandas()` | 衔接只吃 pandas 的库（如某些绘图） |
 | ← pandas | `pl.from_pandas(pdf)` | 渐进式迁移（第 12 节） |
-| ↔ 数据库 | `pl.read_database(query, conn)` | 需 connectorx 或 ADBC 驱动 |
+| ← 已有数据库连接 | `pl.read_database(query, connection)` | 接受兼容的 DBAPI、SQLAlchemy、ADBC 等连接或游标 |
+| ← 数据库 URI | `pl.read_database_uri(query, uri, engine=...)` | 由 ConnectorX 或 ADBC 等引擎建立连接，适合直接传 URI |
+| → 数据库 | `df.write_database(table, connection)` | 使用 SQLAlchemy 或 ADBC 等写入引擎；具体能力取决于驱动 |
 
 > **性能提示**：`to_numpy()` 对无缺失的数值列通常零拷贝（直接共享内存）；含 null 或字符串列则需复制。互操作虽方便，但每次跨界都可能脱离 Polars 优化器，热路径上别频繁往返（第 11 节反模式）。
 

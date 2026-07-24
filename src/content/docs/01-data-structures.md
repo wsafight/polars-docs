@@ -62,12 +62,12 @@ graph LR
 
 ## null vs NaN：一个必须现在就分清的坑
 
-pandas 长期用 `NaN`（浮点的"非数字"）同时表示"缺失"和"数学上的非数"，导致整数列一有缺失就被迫变成 float。Polars 借助 Arrow 的 **validity bitmap** 彻底分开了两个概念：
+pandas 传统的 NumPy-backed dtype 长期用 `NaN`（浮点的"非数字"）同时表示"缺失"和"数学上的非数"，因此普通整数列一有缺失就会变成 float。现代 pandas 也提供 nullable `Int64`、Arrow-backed dtype 和 `pd.NA`；Polars 则从类型系统底层就借助 Arrow 的 **validity bitmap** 分开这两个概念：
 
 | 概念 | 含义 | Polars 表示 | pandas 传统表示 |
 | --- | --- | --- | --- |
-| **null** | 值缺失（不知道/没有） | 独立的 validity bitmap 标记，任何类型都能有 null | 常用 `NaN`，导致 int→float |
-| **NaN** | 浮点运算的非数结果（如 0/0） | 仅存在于浮点列的 `NaN` 值 | 同样是 `NaN`，与缺失混淆 |
+| **null** | 值缺失（不知道/没有） | 独立的 validity bitmap 标记，任何类型都能有 null | 传统 NumPy dtype 常用 `NaN`；nullable dtype 使用 `pd.NA` |
+| **NaN** | 浮点运算的非数结果（如 0/0） | 仅存在于浮点列的 `NaN` 值 | 浮点列仍可包含 `NaN`，`isna` 会同时识别多种缺失标记 |
 
 - Polars 里 `Int64` 列可以带 null 而**不变成浮点**——因为缺失信息存在旁路的 bitmap 里，不占用值本身。
 - 处理缺失用 `.is_null()` / `.fill_null()`；处理浮点非数用 `.is_nan()` / `.fill_nan()`。**两套 API，不要混用。**
@@ -89,12 +89,12 @@ Polars 的类型系统直接映射 Arrow 类型，比 pandas 更明确：
 - **整数**：`Int8/16/32/64`、`UInt8/.../64`（缺失也不退化）。
 - **浮点**：`Float32/64`。
 - **布尔**：`Boolean`（1 bit 存储）。
-- **字符串**：`String`（Arrow 的变长 UTF-8，不是 pandas 的 object）。
+- **字符串**：`String`（Arrow 兼容的变长 UTF-8，不是任意 Python 对象容器）。
 - **时间**：`Date` / `Datetime`（带时间单位 ms/us/ns 和时区）/ `Duration` / `Time`。
 - **类别**：`Categorical` / `Enum`（低基数字符串的高效编码）。
 - **嵌套**：`List`（变长）/ `Array`（定长）/ `Struct`（命名字段）——第 08 节详解。
 
-> 与 pandas 的关键差异：Polars 的字符串是原生一等公民（`String` 类型），而不是 pandas 里性能糟糕的 `object`。这让字符串操作（第 08 节）能走 Rust 的向量化路径。
+> 与传统 pandas `object` 字符串列相比，Polars 的 `String` 从一开始就是原生一等类型，字符串操作（第 08 节）可以直接走 Rust 的向量化路径。pandas 3 默认也会推断专用的 `str` dtype，因此迁移时应按**实际 dtype 和后端**比较，而不是把所有 pandas 字符串都视为 `object`。
 
 ---
 
@@ -107,7 +107,7 @@ Polars 的类型系统直接映射 Arrow 类型，比 pandas 更明确：
 3. **null vs NaN**：构造一个同时含 null 和 NaN 的浮点列，分别用两套 API 处理，看清区别。
 4. **int 带 null 不退化**：证明 `Int64` 列有 null 仍是 `Int64`（对照 pandas 会变 float）。
 5. **chunk 与 rechunk**：`concat` 后 `n_chunks` 增加，`rechunk()` 合并。
-6. **与 Arrow 零拷贝互通**：`to_arrow()` / `from_arrow()`，理解 Polars 只是 Arrow 之上的引擎。
+6. **与 Arrow 低成本互通**：`to_arrow()` / `from_arrow()` 对多数兼容类型可复用缓冲区；Categorical 等类型或需要重排数据时仍可能复制。
 7. **没有 index**：展示 Polars 用位置而非标签定位行。
 
 跑一遍：
